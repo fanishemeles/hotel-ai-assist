@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Hotel, Message, BookingRequest } from '../types';
+import { backendService } from '../services/backendService';
 
 interface AppContextType {
   currentHotel: Hotel | null;
@@ -10,44 +11,70 @@ interface AppContextType {
   setBookings: React.Dispatch<React.SetStateAction<BookingRequest[]>>;
   messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  onboardHotel: (hotelData: any) => Promise<void>;
+  sendMessage: (hotelId: string, guestId: string, text: string) => Promise<void>;
+  loadHotelRequests: (hotelId: string) => Promise<void>;
 }
 
 export const AppContext = React.createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentHotel, setCurrentHotel] = React.useState<Hotel | null>(null);
-  const [hotels, setHotels] = React.useState<Hotel[]>([
-    {
-      id: '1',
-      name: 'Abyssinia Grand',
-      location: 'Addis Ababa, Bole',
-      contactEmail: 'contact@abyssinia.com',
-      phone: '+251911223344',
-      description: 'Luxury hotel in the heart of the city.',
-      amenities: ['Spa', 'Pool', 'Free WiFi', 'Gym'],
-      status: 'active'
-    }
-  ]);
-  const [bookings, setBookings] = React.useState<BookingRequest[]>([
-    {
-      id: 'b1',
-      hotelId: '1',
-      guestName: 'John Doe',
-      checkIn: '2024-06-15',
-      checkOut: '2024-06-20',
-      guests: 2,
-      status: 'pending',
-      timestamp: new Date().toISOString()
-    }
-  ]);
+  const [hotels, setHotels] = React.useState<Hotel[]>([]);
+  const [bookings, setBookings] = React.useState<BookingRequest[]>([]);
   const [messages, setMessages] = React.useState<Message[]>([]);
+
+  // Initial Data Loading
+  useEffect(() => {
+    async function init() {
+      try {
+        const fetchedHotels = await backendService.getHotels();
+        setHotels(fetchedHotels);
+      } catch (err) {
+        console.error('Error fetching hotels:', err);
+      }
+    }
+    init();
+  }, []);
+
+  // Onboard Hotel
+  const onboardHotel = async (hotelData: any) => {
+    const newHotel = await backendService.onboardHotel(hotelData);
+    setHotels(prev => [...prev, newHotel]);
+  };
+
+  // Send Message and handle AI response
+  const sendMessage = async (hotelId: string, guestId: string, text: string) => {
+    // Optimistic guest message
+    const guestMsg: Message = {
+      id: Math.random().toString(),
+      hotelId,
+      sender: 'guest',
+      text,
+      language: 'en', // Backend detects it
+      timestamp: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, guestMsg]);
+
+    const aiMsg = await backendService.handleGuestMessage(hotelId, guestId, text);
+    setMessages(prev => [...prev, aiMsg]);
+  };
+
+  // Load requests for a hotel
+  const loadHotelRequests = async (hotelId: string) => {
+    const fetchedBookings = await backendService.getHotelRequests(hotelId);
+    setBookings(fetchedBookings);
+  };
 
   return (
     <AppContext.Provider value={{ 
       currentHotel, setCurrentHotel, 
       hotels, setHotels,
       bookings, setBookings,
-      messages, setMessages
+      messages, setMessages,
+      onboardHotel,
+      sendMessage,
+      loadHotelRequests
     }}>
       {children}
     </AppContext.Provider>

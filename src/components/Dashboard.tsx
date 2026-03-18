@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   LayoutDashboard, 
@@ -19,13 +19,14 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 export const Dashboard = () => {
-  const { hotels, bookings, setBookings } = useApp();
-  const hotel = hotels[0]; // Simulation: logged in as first hotel
+  const { hotels, bookings, loadHotelRequests } = useApp();
+  const hotel = hotels[0] || { name: 'Aura Partner', location: '' };
 
-  const handleStatus = (id: string, status: 'confirmed' | 'cancelled') => {
-    setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
-    toast.success(`Booking ${status}!`);
-  };
+  useEffect(() => {
+    if (hotels.length > 0) {
+      loadHotelRequests(hotels[0].id);
+    }
+  }, [hotels]);
 
   const stats = [
     { label: 'Total Requests', value: bookings.length, icon: CalendarCheck, color: 'text-blue-600' },
@@ -109,25 +110,14 @@ export const Dashboard = () => {
                         <div>
                           <p className="font-semibold text-slate-900">{booking.guestName}</p>
                           <p className="text-sm text-slate-500">
-                            {booking.checkIn} — {booking.checkOut} • {booking.guests} Guests
+                            {booking.checkIn} \u2014 {booking.checkOut} \u2022 {booking.guests} Guests
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {booking.status === 'pending' ? (
-                          <>
-                            <Button size="sm" variant="outline" className="text-red-600 border-red-100 hover:bg-red-50" onClick={() => handleStatus(booking.id, 'cancelled')}>
-                              <X size={16} />
-                            </Button>
-                            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleStatus(booking.id, 'confirmed')}>
-                              <Check size={16} /> Confirm
-                            </Button>
-                          </>
-                        ) : (
-                          <Badge variant={booking.status === 'confirmed' ? 'default' : 'destructive'} className={booking.status === 'confirmed' ? 'bg-green-100 text-green-700' : ''}>
-                            {booking.status.toUpperCase()}
-                          </Badge>
-                        )}
+                        <Badge variant={booking.status === 'confirmed' ? 'default' : (booking.status === 'pending' ? 'secondary' : 'destructive')} className={booking.status === 'confirmed' ? 'bg-green-100 text-green-700' : ''}>
+                          {booking.status.toUpperCase()}
+                        </Badge>
                       </div>
                     </div>
                   ))}
